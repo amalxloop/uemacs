@@ -18,4 +18,4 @@ kind of working, but only kind of.
 
 So this is a simplistic editor, written for an age when you had 64kB
 limits and 300 or 1200 baud terminals were common.  It was not a better
-age, and this is not a better editors.
+age, and this is not a better editor.
