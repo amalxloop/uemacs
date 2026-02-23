@@ -1,0 +1,13 @@
+[styles]
+normal   = fg=#b0b0b0 bg=#0f111a
+string   = fg=#f2ca6b
+number   = fg=#f2ca6b
+bracket  = fg=#a0a0a0
+operator = fg=#7ed9ff
+function = fg=#56b6c2
+type     = fg=#dd99ff
+keyword  = fg=#ff8a65 bold=true
+flow     = fg=#ff8a65 bold=true
+return   = fg=#ff8a65 bold=true
+error = fg=#0f111a bg=#cfcfcf bold=true
+

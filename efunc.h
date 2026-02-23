@@ -1,13 +1,16 @@
-/*	efunc.h
+/*  efunc.h
  *
- *	Function declarations and names.
+ *  Function declarations and names.
  *
- *	This file list all the C code functions used and the names to use
- *      to bind keys to them. To add functions,	declare it here in both the
+ *  This file list all the C code functions used and the names to use
+ *      to bind keys to them. To add functions, declare it here in both the
  *      extern function list and the name binding table.
  *
- *	modified by Petri Kutvonen
+ *  modified by Petri Kutvonen
  */
+
+#include "ux.h"
+#include "edef.h"
 
 /* External function declarations. */
 
@@ -51,7 +54,7 @@ extern int setmark(int f, int n);
 extern int swapmark(int f, int n);
 
 /* random.c */
-extern int tabsize;				/* Tab size (0: use real tabs). */
+extern int tabsize;             /* Tab size (0: use real tabs). */
 extern int setfillcol(int f, int n);
 extern int showcpos(int f, int n);
 extern int getcline(void);
@@ -186,6 +189,8 @@ extern int addline(char *text);
 extern int anycb(void);
 extern int bclear(struct buffer *bp);
 extern int unmark(int f, int n);
+extern void bfreeall(void);
+extern void cleanup_backup(struct buffer *bp, int force);
 /* Lookup a buffer by name. */
 extern struct buffer *bfind(char *bname, int cflag, int bflag);
 
@@ -198,9 +203,41 @@ extern int getfile(char *fname, int lockfl);
 extern int readin(char *fname, int lockfl);
 extern void makename(char *bname, char *fname);
 extern void unqname(char *name);
+
+/* uemacs.c */
+extern void nanox_init(void);
+extern void nanox_apply_config(void);
+extern void nanox_notify_message(const char *text);
+extern int nanox_text_rows(void);
+extern int nanox_hint_top_row(void);
+extern int nanox_hint_bottom_row(void);
+extern bool nanox_help_is_active(void);
+extern int nanox_help_command(int f, int n);
+extern int nanox_help_handle_key(int key);
+extern void nanox_cleanup(void);
+extern void nanox_message_prefix(const char *input, char *output, size_t outsz);
+
+/* cutln.c */
+extern int cutln_trigger(int f, int n);
+extern int cutln_copy(int f, int n);
+extern int cutln_paste_menu(int f, int n);
+
+/* command_mode.c */
+extern int command_mode_activate_command(int f, int n);
+extern int sed_replace_command(int f, int n);
+
+extern int reserve_set_1(int f, int n);
+extern int reserve_set_2(int f, int n);
+extern int reserve_set_3(int f, int n);
+extern int reserve_set_4(int f, int n);
+extern int reserve_jump_1(int f, int n);
+extern int reserve_jump_2(int f, int n);
+extern int reserve_jump_3(int f, int n);
+extern int reserve_jump_4(int f, int n);
 extern int filewrite(int f, int n);
 extern int filesave(int f, int n);
 extern int writeout(char *fn);
+extern int is_effectively_same(char *fname, struct buffer *bp);
 extern int filename(int f, int n);
 extern int ifile(char *fname);
 
@@ -236,6 +273,62 @@ extern int cbuf5(int f, int n);
 extern int cbuf6(int f, int n);
 extern int cbuf7(int f, int n);
 extern int cbuf8(int f, int n);
+extern int cbuf9(int f, int n);
+extern int cbuf10(int f, int n);
+extern int cbuf11(int f, int n);
+extern int cbuf12(int f, int n);
+extern int cbuf13(int f, int n);
+extern int cbuf14(int f, int n);
+extern int cbuf15(int f, int n);
+extern int cbuf16(int f, int n);
+extern int cbuf17(int f, int n);
+extern int cbuf18(int f, int n);
+extern int cbuf19(int f, int n);
+extern int cbuf20(int f, int n);
+extern int cbuf21(int f, int n);
+extern int cbuf22(int f, int n);
+extern int cbuf23(int f, int n);
+extern int cbuf24(int f, int n);
+extern int cbuf25(int f, int n);
+extern int cbuf26(int f, int n);
+extern int cbuf27(int f, int n);
+extern int cbuf28(int f, int n);
+extern int cbuf29(int f, int n);
+extern int cbuf30(int f, int n);
+extern int cbuf31(int f, int n);
+extern int cbuf32(int f, int n);
+extern int cbuf33(int f, int n);
+extern int cbuf34(int f, int n);
+extern int cbuf35(int f, int n);
+extern int cbuf36(int f, int n);
+extern int cbuf37(int f, int n);
+extern int cbuf38(int f, int n);
+extern int cbuf39(int f, int n);
+extern int cbuf40(int f, int n);
+
+/* Terminal driver functions */
+extern void tcapopen(void);
+extern void tcapclose(void);
+extern void tcapkopen(void);
+extern void tcapkclose(void);
+extern void tcapmove(int row, int col);
+extern void tcapeeol(void);
+extern void tcapeeop(void);
+extern void tcapbeep(void);
+extern void tcaprev(int state);
+extern int tcapcres(char *res);
+
+extern void ttopen(void);
+extern void ttclose(void);
+extern int ttgetc(void);
+extern int ttputc(int c);
+extern void ttflush(void);
+extern void ttmove(int row, int col);
+extern void tteeol(void);
+extern void tteeop(void);
+extern void ttbeep(void);
+extern void ttrev(int state);
+extern int ttrez(char *res);
 extern int cbuf9(int f, int n);
 extern int cbuf10(int f, int n);
 extern int cbuf11(int f, int n);
@@ -309,9 +402,19 @@ extern int promptpattern(char *prompt);
 extern int get_char(void);
 extern int uneat(void);
 extern void reeat(int c);
+/* Minibuffer functions */
+extern void minibuf_init(void);
+extern void minibuf_clear(void);
+extern int minibuf_insert_char(unsigned int c);
+extern int minibuf_delete_char(long n);
+extern void minibuf_update(const char *prompt);
+extern void minibuf_get_text(char *dest, int max_len);
+extern int minibuf_input(const char *prompt, char *dest, int max_len);
+extern void minibuf_show(const char *msg);
 
 /* eval.c */
 extern void varinit(void);
+extern void varcleanup(void);
 extern char *gtfun(char *fname);
 extern char *gtusr(char *vname);
 extern char *gtenv(char *vname);
@@ -344,3 +447,7 @@ extern void lckerror(char *errstr);
 /* pklock.c */
 extern char *dolock(char *fname);
 extern char *undolock(char *fname);
+
+/* cscope.c */
+extern int cscope_complete(int f, int n);
+

@@ -1,36 +1,45 @@
-/*	posix.c
+/*  posix.c
  *
  *      The functions in this file negotiate with the operating system for
  *      characters, and write characters in a barely buffered fashion on the
  *      display. All operating systems.
  *
- *	modified by Petri Kutvonen
+ *  modified by Petri Kutvonen
  *
- *	based on termio.c, with all the old cruft removed, and
- *	fixed for termios rather than the old termio.. Linus Torvalds
+ *  based on termio.c, with all the old cruft removed, and
+ *  fixed for termios rather than the old termio.. Linus Torvalds
  */
 
 #include <errno.h>
 #include <fcntl.h>
 #include <signal.h>
 #include <stdio.h>
+#include <stdlib.h>
+#include <string.h>
 #include <termios.h>
 #include <unistd.h>
 #include <sys/ioctl.h>
+#include <time.h>
 
 #include "estruct.h"
 #include "edef.h"
 #include "efunc.h"
 #include "utf8.h"
+#include "paste_slot.h"
 
-static int kbdflgs;				/* saved keyboard fd flags      */
-static int kbdpoll;				/* in O_NDELAY mode             */
+extern struct terminal term;
 
-static struct termios otermios;			/* original terminal characteristics */
-static struct termios ntermios;			/* charactoristics to use inside */
+/* Forward declaration */
+static int handle_bracketed_paste(void);
+
+static int kbdflgs;             /* saved keyboard fd flags      */
+static int kbdpoll;             /* in O_NDELAY mode             */
+
+static struct termios otermios;         /* original terminal characteristics */
+static struct termios ntermios;         /* charactoristics to use inside */
 
 #define TBUFSIZ 128
-static char tobuf[TBUFSIZ];			/* terminal output buffer */
+static char tobuf[TBUFSIZ];         /* terminal output buffer */
 
 /*
  * This function is called once to set up the terminal device streams.
@@ -39,43 +48,46 @@ static char tobuf[TBUFSIZ];			/* terminal output buffer */
  */
 void ttopen(void)
 {
-	tcgetattr(0, &otermios);		/* save old settings */
+    tcgetattr(0, &otermios);        /* save old settings */
 
-	/*
-	 * base new settings on old ones - don't change things
-	 * we don't know about
-	 */
-	ntermios = otermios;
+    /*
+     * base new settings on old ones - don't change things
+     * we don't know about
+     */
+    ntermios = otermios;
 
-	/* raw CR/NL etc input handling, but keep ISTRIP if we're on a 7-bit line */
-	ntermios.c_iflag &= ~(IGNBRK | BRKINT | IGNPAR | PARMRK | INPCK | INLCR | IGNCR | ICRNL);
+    /* raw CR/NL etc input handling, but keep ISTRIP if we're on a 7-bit line */
+    ntermios.c_iflag &= ~(IGNBRK | BRKINT | IGNPAR | PARMRK | INPCK | INLCR | IGNCR | ICRNL);
 
-	/* raw CR/NR etc output handling */
-	ntermios.c_oflag &= ~(OPOST | ONLCR | OLCUC | OCRNL | ONOCR | ONLRET);
+    /* raw CR/NR etc output handling */
+    ntermios.c_oflag &= ~(OPOST | ONLCR | OLCUC | OCRNL | ONOCR | ONLRET);
 
-	/* No signal handling, no echo etc */
-	ntermios.c_lflag &= ~(ISIG | ICANON | XCASE | ECHO | ECHOE | ECHOK
-			      | ECHONL | NOFLSH | TOSTOP | ECHOCTL |
-			      ECHOPRT | ECHOKE | FLUSHO | PENDIN | IEXTEN);
+    /* No signal handling, no echo etc */
+    ntermios.c_lflag &= ~(ISIG | ICANON | XCASE | ECHO | ECHOE | ECHOK
+                  | ECHONL | NOFLSH | TOSTOP | ECHOCTL |
+                  ECHOPRT | ECHOKE | FLUSHO | PENDIN | IEXTEN);
 
-	/* one character, no timeout */
-	ntermios.c_cc[VMIN] = 1;
-	ntermios.c_cc[VTIME] = 0;
-	tcsetattr(0, TCSADRAIN, &ntermios);	/* and activate them */
+    /* one character, no timeout */
+    ntermios.c_cc[VMIN] = 1;
+    ntermios.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSADRAIN, &ntermios); /* and activate them */
 
-	/*
-	 * provide a smaller terminal output buffer so that
-	 * the type ahead detection works better (more often)
-	 */
-	setbuffer(stdout, &tobuf[0], TBUFSIZ);
+    /*
+     * provide a smaller terminal output buffer so that
+     * the type ahead detection works better (more often)
+     */
+    setbuffer(stdout, &tobuf[0], TBUFSIZ);
 
-	kbdflgs = fcntl(0, F_GETFL, 0);
-	kbdpoll = FALSE;
+    kbdflgs = fcntl(0, F_GETFL, 0);
+    kbdpoll = FALSE;
 
-	/* on all screens we are not sure of the initial position
-	   of the cursor                                        */
-	ttrow = 999;
-	ttcol = 999;
+    /* on all screens we are not sure of the initial position
+       of the cursor                                        */
+    ttrow = 999;
+    ttcol = 999;
+
+    /* Enable bracketed paste mode for paste slot window */
+    write(1, "\033[?2004h", 8);
 }
 
 /*
@@ -85,7 +97,9 @@ void ttopen(void)
  */
 void ttclose(void)
 {
-	tcsetattr(0, TCSADRAIN, &otermios);	/* restore terminal settings */
+    /* Disable bracketed paste mode */
+    write(1, "\033[?2004l", 8);
+    tcsetattr(0, TCSADRAIN, &otermios); /* restore terminal settings */
 }
 
 /*
@@ -96,12 +110,12 @@ void ttclose(void)
  */
 int ttputc(int c)
 {
-	char utf8[6];
-	int bytes;
+    char utf8[6];
+    int bytes;
 
-	bytes = unicode_to_utf8(c, utf8);
-	fwrite(utf8, 1, bytes, stdout);
-	return 0;
+    bytes = unicode_to_utf8(c, utf8);
+    fwrite(utf8, 1, bytes, stdout);
+    return 0;
 }
 
 /*
@@ -121,49 +135,49 @@ void ttflush(void)
  * Jani Jaakkola suggested using select after EAGAIN but let's just wait a bit
  *
  */
-	int status;
+    int status;
 
-	status = fflush(stdout);
-	while (status < 0 && errno == EAGAIN) {
-		sleep(1);
-		status = fflush(stdout);
-	}
-	if (status < 0)
-		exit(15);
+    status = fflush(stdout);
+    while (status < 0 && errno == EAGAIN) {
+        sleep(1);
+        status = fflush(stdout);
+    }
+    if (status < 0)
+        exit(15);
 }
 
 /*
  * Small tty input buffer
  */
 static struct {
-	int nr;
-	char buf[32];
+    int nr;
+    char buf[32];
 } TT;
 
 /* Pause for x*.1 second lag or until keypress */
 static void pause_read(int pause)
 {
-	int n;
+    int n;
 
-	ntermios.c_cc[VMIN] = 0;
-	ntermios.c_cc[VTIME] = pause;
-	tcsetattr(0, TCSANOW, &ntermios);
+    ntermios.c_cc[VMIN] = 0;
+    ntermios.c_cc[VTIME] = pause;
+    tcsetattr(0, TCSANOW, &ntermios);
 
-	n = read(0, TT.buf + TT.nr, sizeof(TT.buf) - TT.nr);
+    n = read(0, TT.buf + TT.nr, sizeof(TT.buf) - TT.nr);
 
-	/* Undo timeout */
-	ntermios.c_cc[VMIN] = 1;
-	ntermios.c_cc[VTIME] = 0;
-	tcsetattr(0, TCSANOW, &ntermios);
+    /* Undo timeout */
+    ntermios.c_cc[VMIN] = 1;
+    ntermios.c_cc[VTIME] = 0;
+    tcsetattr(0, TCSANOW, &ntermios);
 
-	if (n > 0)
-		TT.nr += n;
+    if (n > 0)
+        TT.nr += n;
 }
 
 void ttpause(void)
 {
-	if (term.t_pause && !TT.nr)
-		pause_read(term.t_pause);
+    if (term.t_pause && !TT.nr)
+        pause_read(term.t_pause);
 }
 
 /*
@@ -173,72 +187,160 @@ void ttpause(void)
  */
 int ttgetc(void)
 {
-	unicode_t c;
-	int count, bytes = 1, expected;
+    unicode_t c;
+    int count, bytes = 1, expected;
 
-	count = TT.nr;
-	if (!count) {
-		count = read(0, TT.buf, sizeof(TT.buf));
-		if (count <= 0)
-			return 0;
-		TT.nr = count;
-	}
+    count = TT.nr;
+    if (!count) {
+        count = read(0, TT.buf, sizeof(TT.buf));
+        if (count <= 0)
+            return 0;
+        TT.nr = count;
+    }
 
-	c = (unsigned char)TT.buf[0];
-	if (c != 27 && c < 128)
-		goto done;
+    /* Check for bracketed paste mode */
+    if (handle_bracketed_paste())
+        return 0;  /* Paste was handled, return dummy value */
 
-	/*
-	 * Lazy. We don't bother calculating the exact
-	 * expected length. We want at least two characters
-	 * for the special character case (ESC+[) and for
-	 * the normal short UTF8 sequence that starts with
-	 * the 110xxxxx pattern.
-	 *
-	 * But if we have any of the other patterns, just
-	 * try to get more characters. At worst, that will
-	 * just result in a barely perceptible 0.1 second
-	 * delay for some *very* unusual utf8 character
-	 * input.
-	 */
-	expected = 2;
-	if ((c & 0xe0) == 0xe0)
-		expected = 6;
+    c = (unsigned char)TT.buf[0];
+    if (c != 27 && c < 128)
+        goto done;
 
-	/* Special character - try to re-fill the buffer */
-	if (count < expected)
-		pause_read(1);
+    /*
+     * Lazy. We don't bother calculating the exact
+     * expected length. We want at least two characters
+     * for the special character case (ESC+[) and for
+     * the normal short UTF8 sequence that starts with
+     * the 110xxxxx pattern.
+     *
+     * But if we have any of the other patterns, just
+     * try to get more characters. At worst, that will
+     * just result in a barely perceptible 0.1 second
+     * delay for some *very* unusual utf8 character
+     * input.
+     */
+    expected = 2;
+    if ((c & 0xe0) == 0xe0)
+        expected = 6;
 
-	if (TT.nr > 1) {
-		unsigned char second = TT.buf[1];
+    /* Special character - try to re-fill the buffer */
+    if (count < expected)
+        pause_read(1);
 
-		/* Turn ESC+'[' into CSI */
-		if (c == 27 && second == '[') {
-			bytes = 2;
-			c = 128 + 27;
-			goto done;
-		}
-	}
-	bytes = utf8_to_unicode(TT.buf, 0, TT.nr, &c);
+    if (TT.nr > 1) {
+        unsigned char second = TT.buf[1];
 
-	/* Hackety hack! Turn no-break space into regular space */
-	if (c == 0xa0)
-		c = ' ';
+        /* Turn ESC+'[' into CSI */
+        if (c == 27 && second == '[') {
+            bytes = 2;
+            c = 128 + 27;
+            goto done;
+        }
+    }
+    bytes = utf8_to_unicode(TT.buf, 0, TT.nr, &c);
+
+    /* Hackety hack! Turn no-break space into regular space */
+    if (c == 0xa0)
+        c = ' ';
  done:
-	TT.nr -= bytes;
-	memmove(TT.buf, TT.buf + bytes, TT.nr);
-	return c;
+    TT.nr -= bytes;
+    memmove(TT.buf, TT.buf + bytes, TT.nr);
+    return c;
 }
 
-/* typahead:	Check to see if any characters are already in the
-		keyboard TT.buf
+/* typahead:    Check to see if any characters are already in the
+        keyboard TT.buf
 */
 
 int typahead(void)
 {
-	int x;
+    int x;
 
-	if (ioctl(0, FIONREAD, &x) < 0)
-		x = 0;
-	return x + TT.nr;
+    if (ioctl(0, FIONREAD, &x) < 0)
+        x = 0;
+    return x + TT.nr;
+}
+
+/*
+ * Handle bracketed paste mode - redirects to paste slot window
+ * Returns TRUE if bracketed paste was handled, FALSE otherwise
+ */
+int handle_bracketed_paste(void)
+{
+    extern void paste_slot_init(void);
+    extern int paste_slot_add_char(char c);
+    extern void paste_slot_clear(void);
+    extern void paste_slot_set_active(int active);
+    extern void paste_slot_display(void);
+    
+    /* Check if we have enough bytes for the paste start sequence */
+    if (TT.nr < 6)
+        return 0;
+    
+    /* Check for ESC[200~ (paste start) */
+    if (TT.buf[0] != 27 || TT.buf[1] != '[' || 
+        TT.buf[2] != '2' || TT.buf[3] != '0' || 
+        TT.buf[4] != '0' || TT.buf[5] != '~')
+        return 0;
+    
+    /* Consume the paste start sequence */
+    TT.nr -= 6;
+    memmove(TT.buf, TT.buf + 6, TT.nr);
+    
+    /* Initialize and clear paste slot */
+    paste_slot_init();
+    paste_slot_clear();
+    
+    /* Read characters until we see ESC[201~ (paste end) */
+    int paste_active = 1;
+    while (paste_active) {
+        /* Ensure we have data - non-blocking read with timeout */
+        if (TT.nr == 0) {
+            /* Set non-blocking mode */
+            fcntl(0, F_SETFL, kbdflgs | O_NONBLOCK);
+            
+            /* Try to read with small delay */
+            struct timespec ts = {0, 10000000};  /* 10ms */
+            nanosleep(&ts, NULL);
+            
+            int count = read(0, TT.buf + TT.nr, sizeof(TT.buf) - TT.nr);
+            
+            /* Restore blocking mode */
+            fcntl(0, F_SETFL, kbdflgs);
+            
+            if (count <= 0) {
+                /* No more data, assume paste ended */
+                paste_active = 0;
+                break;
+            }
+            TT.nr += count;
+        }
+        
+        if (TT.nr == 0)
+            break;
+        
+        /* Check for paste end sequence */
+        if (TT.nr >= 6 && TT.buf[0] == 27 && TT.buf[1] == '[' &&
+            TT.buf[2] == '2' && TT.buf[3] == '0' && 
+            TT.buf[4] == '1' && TT.buf[5] == '~') {
+            /* Consume the paste end sequence */
+            TT.nr -= 6;
+            memmove(TT.buf, TT.buf + 6, TT.nr);
+            paste_active = 0;
+            break;
+        }
+        
+        /* Read one byte and add to paste slot buffer */
+        unsigned char c = TT.buf[0];
+        TT.nr--;
+        memmove(TT.buf, TT.buf + 1, TT.nr);
+        
+        paste_slot_add_char(c);
+    }
+    
+    /* Activate paste slot window */
+    paste_slot_set_active(1);
+    paste_slot_display();
+    
+    return 1;
 }

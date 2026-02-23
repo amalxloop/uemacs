@@ -1,0 +1,6 @@
+{
+  "projectId": "76226c2d-1686-44de-8ace-0ef3c164c179",
+  "createdAt": 1771868073341,
+  "startupCommands": ["cd /home/kiraxploit/uemacs && make"],
+  "templateId": "any"
+}
