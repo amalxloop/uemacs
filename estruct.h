@@ -30,7 +30,6 @@
 #define NPAT    1024                /* # of bytes, pattern          */
 #define HUGE    1000                /* Huge number                  */
 #define NLOCKS  1000                /* max # of file locks active   */
-#define NCOLORS 8               /* number of supported colors   */
 #define KBLOCK  8192            /* sizeof kill buffer chunks (increased for large pastes) */
 
 #define CONTROL 0x10000000          /* Control flag, or'ed in       */
@@ -173,7 +172,6 @@ struct window {
 #define WFEDIT  0x04                /* Editing within a line        */
 #define WFHARD  0x08                /* Better to a full display     */
 #define WFMODE  0x10                /* Update mode line.            */
-#define WFCOLR  0x20                /* Needs a color change         */
 
 /*
  * Text is kept in buffers. A buffer header, described below, exists for every
@@ -260,7 +258,6 @@ struct terminal {
     void (*t_beep)(void);           /* Beep.                        */
     void (*t_rev)(int);         /* set reverse video state      */
     void (*t_italic)(int);      /* set italic video state       */
-    int (*t_rez)(char *);           /* change screen resolution     */
 };
 
 /*  TEMPORARY macros for terminal I/O  (to be placed in a machine
@@ -279,7 +276,6 @@ struct terminal {
 #define TTbeep      (*term.t_beep)
 #define TTrev       (*term.t_rev)
 #define TTitalic    (*term.t_italic)
-#define TTrez       (*term.t_rez)
 
 /* Structure for the table of initial key bindings. */
 struct key_tab {

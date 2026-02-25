@@ -516,7 +516,6 @@ int svar(struct variable_description *var, char *value)
             curwp->w_flag |= WFMODE;
             break;
         case EVSRES:
-            status = TTrez(value);
             break;
         case EVDEBUG:
             macbug = stol(value);

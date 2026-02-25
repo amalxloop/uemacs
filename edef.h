@@ -18,6 +18,10 @@ extern void ttflush(void);
 
 /* initialized global definitions */
 
+int flickcode = FALSE;          /* do flicker suppression?      */
+long envram = 0L;               /* # of bytes current in use by malloc */
+char sres[NSTRING] = "NORMAL"; /* current screen resolution    */
+char palstr[49] = "";           /* palette string               */
 int flen = 0;                   /* current length of fline */
 struct kill *kbufp = NULL;          /* current kill buffer chunk pointer    */
 int fillcol = 72;        /* Current fill column          */
@@ -28,7 +32,7 @@ int execlevel = 0;        /* execution IF level            */
 char *patmatch = NULL;        /* string that matched          */
 int eolexist = TRUE;        /* does clear to EOL exist?     */
 int revexist = FALSE;        /* does reverse video exist?    */
-int flickcode = FALSE;        /* do flicker supression?       */
+
 char *modename[] = {        /* mode names                   */
     "Wrap", "Cmode", "Spell", "Exact", "View", "Over",
     "Magic", "Crypt", "Asave"
@@ -49,7 +53,6 @@ void tcapeeol(void);
 void tcapeeop(void);
 void tcapbeep(void);
 void tcaprev(int);
-int tcapcres(char *);
 
 void tcapopen(void);
 void tcapclose(void);
@@ -73,7 +76,6 @@ int kbdrep;            /* number of times to execute   */
 int restflag;            /* restricted use?              */
 int lastkey;            /* last keystoke                */
 int seed;            /* random number seed           */
-long envram;            /* # of bytes current in use by malloc */
 int macbug;            /* macro debug flag             */
 int cmdstatus;            /* last command status          */
 char pat[NPAT];            /* Search pattern               */
@@ -100,8 +102,6 @@ int vtcol;            /* Column location of virtual cursor */
 int lbound;            /* Left bound for horizontal scroll */
 int sgarbf = FALSE;     /* Screen garbage flag (Duplicate fixed) */
 int mpresf = FALSE;     /* Message present flag (Duplicate fixed) */
-int gfcolor;                /* global forgrnd color (white) */
-int gbcolor;                /* global backgrnd color (black) */
 int quotec;                /* quote char during mlreply() */
 int tab_width;                /* tabulator width */
 int abortc;                /* abort char */
@@ -118,8 +118,6 @@ char truem[] = "TRUE";            /* True literal changed to array */
 char falsem[] = "FALSE";            /* False literal changed to array */
 struct kill *kbufh = NULL;        /* Kill buffer head */
 int kused = 0;                /* Kill buffer used (long -> int) */
-char sres[NSTRING] = "NORMAL";        /* Screen resolution */
-char palstr[NSTRING] = "";        /* Palette string */
 int saveflag = 0;            /* Temp store for lastflag */
 int mstore = FALSE;            /* storing macro */
 struct buffer *bstore = NULL;        /* buffer to store macro */
@@ -145,7 +143,6 @@ extern int execlevel;        /* execution IF level            */
 extern char *patmatch;        /* string that matched          */
 extern int eolexist;        /* does clear to EOL exist?     */
 extern int revexist;        /* does reverse video exist?    */
-extern int flickcode;        /* do flicker supression?       */
 extern char *modename[];    /* mode names                   */
 extern char modecode[];        /* letters to represent modes   */
 extern int numlocks;        /* number of locks active       */
@@ -154,6 +151,10 @@ extern int gflags;        /* global control flag          */
 extern int rval;        /* return value of a subprocess */
 extern int overlap;        /* overlap on next/prev page    */
 extern int scrollcount;        /* number of lines to scroll    */
+extern int flickcode;           /* do flicker suppression?      */
+extern long envram;             /* # of bytes current in use by malloc */
+extern char sres[];             /* current screen resolution    */
+extern char palstr[];
 
 /* uninitialized global external declarations */
 
@@ -174,7 +175,6 @@ extern int kbdrep;        /* number of times to execute   */
 extern int restflag;        /* restricted use?              */
 extern int lastkey;        /* last keystoke                */
 extern int seed;        /* random number seed           */
-extern long envram;        /* # of bytes current in use by malloc */
 extern int macbug;        /* macro debug flag             */
 extern int cmdstatus;        /* last command status          */
 extern char pat[];        /* Search pattern               */
@@ -200,8 +200,6 @@ extern int vtcol;        /* Column location of virtual cursor */
 extern int lbound;        /* Left bound for horizontal scroll */
 extern int sgarbf;        /* Screen garbage flag */
 extern int mpresf;        /* Message present flag */
-extern int gfcolor;                /* global forgrnd color (white) */
-extern int gbcolor;                /* global backgrnd color (black) */
 extern int quotec;                /* quote char during mlreply() */
 extern int tab_width;                /* tabulator width */
 extern int abortc;                /* abort char */
@@ -219,8 +217,6 @@ extern char falsem[];            /* False literal changed to array */
 extern struct kill *kbufp;        /* Kill buffer pointer */
 extern struct kill *kbufh;        /* Kill buffer head */
 extern int kused;                /* Kill buffer used (long -> int) */
-extern char sres[];            /* Screen resolution */
-extern char palstr[];            /* Palette string */
 extern int saveflag;            /* Temp store for lastflag */
 extern int mstore;            /* storing macro */
 extern struct buffer *bstore;        /* buffer to store macro */

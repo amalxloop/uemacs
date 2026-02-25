@@ -17,6 +17,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #include "estruct.h"
 #include "edef.h"
@@ -171,13 +172,10 @@ int linstr(char *instr)
 
 int linsert_byte(int n, int c)
 {
-    unsigned char *cp1;
-    unsigned char *cp2;
     struct line *lp1;
     struct line *lp2;
     struct line *lp3;
     int doto;
-    int i;
     struct window *wp;
 
     if (curbp->b_mode & MDVIEW)     /* don't allow this command if      */
@@ -196,8 +194,7 @@ int linsert_byte(int n, int c)
         lp2->l_fp = lp1;
         lp1->l_bp = lp2;
         lp2->l_bp = lp3;
-        for (i = 0; i < n; ++i)
-            lp2->l_text[i] = c;
+        memset(lp2->l_text, c, n);
         curwp->w_dotp = lp2;
         curwp->w_doto = n;
         return TRUE;
@@ -206,13 +203,9 @@ int linsert_byte(int n, int c)
     if (lp1->l_used + n > lp1->l_size) {    /* Hard: reallocate     */
         if ((lp2 = lalloc(lp1->l_used + n)) == NULL)
             return FALSE;
-        cp1 = &lp1->l_text[0];
-        cp2 = &lp2->l_text[0];
-        while (cp1 != &lp1->l_text[doto])
-            *cp2++ = *cp1++;
-        cp2 += n;
-        while (cp1 != &lp1->l_text[lp1->l_used])
-            *cp2++ = *cp1++;
+        memcpy(lp2->l_text, lp1->l_text, doto);
+        memcpy(lp2->l_text + doto + n, lp1->l_text + doto,
+               lp1->l_used - doto);
         lp1->l_bp->l_fp = lp2;
         lp2->l_fp = lp1->l_fp;
         lp1->l_fp->l_bp = lp2;
@@ -221,13 +214,10 @@ int linsert_byte(int n, int c)
     } else {                /* Easy: in place       */
         lp2 = lp1;          /* Pretend new line     */
         lp2->l_used += n;
-        cp2 = &lp1->l_text[lp1->l_used];
-        cp1 = cp2 - n;
-        while (cp1 != &lp1->l_text[doto])
-            *--cp2 = *--cp1;
+        memmove(lp1->l_text + doto + n, lp1->l_text + doto,
+                lp1->l_used - doto - n);
     }
-    for (i = 0; i < n; ++i)         /* Add the characters       */
-        lp2->l_text[doto + i] = c;
+    memset(lp2->l_text + doto, c, n);  /* Add the characters       */
     wp = curwp;             /* Update window        */
     if (wp->w_linep == lp1)
         wp->w_linep = lp2;
